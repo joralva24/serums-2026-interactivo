@@ -1,110 +1,101 @@
-
 import streamlit as st
 import pandas as pd
 
 # 1. CONFIGURACIÓN DE LA PÁGINA
-st.set_page_config(page_title="SERUMS 2026 - Estrategia", layout="wide", page_icon="🏥")
+st.set_page_config(page_title="SERUMS 2026 - Mapa Interactivo", layout="wide", page_icon="📍")
 
-# Estilo visual para las métricas
+# Estilo para métricas
 st.markdown("<style>[data-testid='stMetricValue'] {font-size: 28px; color: #007bff;}</style>", unsafe_allow_html=True)
 
-st.title("🏥 Buscador y Planificador SERUMS 2026-I")
-st.markdown("Filtra las plazas, selecciona tus favoritas y descarga tu lista de postulación.")
-
-# 2. CARGA DE DATOS
+# 2. FUNCIONES DE CARGA DE DATOS
 @st.cache_data
 def load_data():
     df = pd.read_csv('plazas_serums_2026_limpio.csv')
     df['N° PLAZAS'] = pd.to_numeric(df['N° PLAZAS'], errors='coerce').fillna(0).astype(int)
+    # Estandarizar código RENIPRESS a 8 dígitos
+    df['CÓDIGO RENIPRESS'] = df['CÓDIGO RENIPRESS'].astype(str).str.zfill(8)
     return df
 
+@st.cache_data
+def load_coords():
+    try:
+        df_geo = pd.read_csv('coordenadas_renipress.csv')
+        df_geo['CÓDIGO RENIPRESS'] = df_geo['CÓDIGO RENIPRESS'].astype(str).str.zfill(8)
+        return df_geo
+    except FileNotFoundError:
+        return None
+
+# Cargar archivos
 df = load_data()
+df_coords = load_coords()
 
-# --- 3. BARRA LATERAL (TODOS TUS FILTROS) ---
+# --- 3. BARRA LATERAL (FILTROS) ---
 st.sidebar.header("⚙️ Filtros de Búsqueda")
-
-# Filtro: Profesión
-profesion_sel = st.sidebar.multiselect("1. Profesión:", sorted(df['PROFESIÓN'].unique().tolist()))
-
-# Filtro: Ubicación (Departamento -> Provincia)
-depts_disponibles = sorted(df['DEPARTAMENTO'].unique().tolist())
-dept_sel = st.sidebar.multiselect("2. Departamento:", depts_disponibles)
-
-if dept_sel:
-    prov_disponibles = sorted(df[df['DEPARTAMENTO'].isin(dept_sel)]['PROVINCIA'].unique().tolist())
-else:
-    prov_disponibles = sorted(df['PROVINCIA'].unique().tolist())
-prov_sel = st.sidebar.multiselect("3. Provincia:", prov_disponibles)
-
-# Filtro: Grado de Dificultad
-gd_sel = st.sidebar.multiselect("4. Grado de Dificultad (GD):", sorted(df['GRADO DE DIFICULTAD'].unique().tolist()))
-
-# Filtro: Presupuesto
-pres_sel = st.sidebar.multiselect("5. Presupuesto:", sorted(df['PRESUPUESTO'].unique().tolist()))
+profesion_sel = st.sidebar.multiselect("Profesión:", sorted(df['PROFESIÓN'].unique().tolist()))
+depts_sel = st.sidebar.multiselect("Departamento:", sorted(df['DEPARTAMENTO'].unique().tolist()))
+gd_sel = st.sidebar.multiselect("Grado de Dificultad:", sorted(df['GRADO DE DIFICULTAD'].unique().tolist()))
 
 # Filtros de Bonos
 st.sidebar.markdown("---")
-zaf_filtro = st.sidebar.checkbox("Bono ZAF (Zona Alejada)")
-ze_filtro = st.sidebar.checkbox("Bono ZE (VRAEM)")
+zaf_filtro = st.sidebar.checkbox("Solo con Bono ZAF")
+ze_filtro = st.sidebar.checkbox("Solo con Bono ZE")
 
 # --- 4. LÓGICA DE FILTRADO ---
 df_f = df.copy()
+if profesion_sel: df_f = df_f[df_f['PROFESIÓN'].isin(profesion_sel)]
+if depts_sel: df_f = df_f[df_f['DEPARTAMENTO'].isin(depts_sel)]
+if gd_sel: df_f = df_f[df_f['GRADO DE DIFICULTAD'].isin(gd_sel)]
+if zaf_filtro: df_f = df_f[df_f['ZAF (*)'] == 'SI']
+if ze_filtro: df_f = df_f[df_f['ZE (**)'] == 'SI']
 
-if profesion_sel:
-    df_f = df_f[df_f['PROFESIÓN'].isin(profesion_sel)]
-if dept_sel:
-    df_f = df_f[df_f['DEPARTAMENTO'].isin(dept_sel)]
-if prov_sel:
-    df_f = df_f[df_f['PROVINCIA'].isin(prov_sel)]
-if gd_sel:
-    df_f = df_f[df_f['GRADO DE DIFICULTAD'].isin(gd_sel)]
-if pres_sel:
-    df_f = df_f[df_f['PRESUPUESTO'].isin(pres_sel)]
-if zaf_filtro:
-    df_f = df_f[df_f['ZAF (*)'] == 'SI']
-if ze_filtro:
-    df_f = df_f[df_f['ZE (**)'] == 'SI']
+# --- 5. CUERPO PRINCIPAL ---
+st.title("📍 Planificador SERUMS 2026-I")
+st.markdown("Busca tus plazas y selecciónalas para verlas en el mapa.")
 
-# Buscador de texto
-search = st.text_input("🔍 Buscar por Establecimiento o Distrito:", "")
-if search:
-    df_f = df_f[df_f['NOMBRE DE ESTABLECIMIENTO'].str.contains(search, case=False, na=False) | 
-                df_f['DISTRITO'].str.contains(search, case=False, na=False)]
+col1, col2 = st.columns(2)
+col1.metric("Establecimientos", len(df_f))
+col2.metric("Vacantes Totales", int(df_f['N° PLAZAS'].sum()))
 
-# --- 5. VISUALIZACIÓN Y MÉTRICAS ---
-c1, c2, c3 = st.columns([1, 1, 2])
-with c1:
-    st.metric("Establecimientos", len(df_f))
-with c2:
-    st.metric("Vacantes Totales", int(df_f['N° PLAZAS'].sum()))
-with c3:
-    csv_todo = df_f.to_csv(index=False).encode('utf-8-sig')
-    st.download_button("📥 Descargar búsqueda completa", csv_todo, "busqueda_serums.csv", "text/csv")
-
-# --- 6. TABLA INTERACTIVA ---
-st.info("💡 Selecciona las filas en el cuadro de la izquierda para agregarlas a tu 'Lista de Postulación' abajo.")
-
+# --- 6. TABLA DE RESULTADOS ---
+st.info("💡 Selecciona una o varias filas para activar el mapa y la lista de favoritos.")
 event = st.dataframe(
     df_f, 
     use_container_width=True, 
     hide_index=True, 
     on_select="rerun", 
-    selection_mode="multi-row" # <--- CAMBIO: Ahora con guion medio (-)
+    selection_mode="multi-row"
 )
-# --- 7. SECCIÓN DE FAVORITOS ---
+
+# --- 7. LÓGICA DEL MAPA Y FAVORITOS ---
 indices_seleccionados = event['selection']['rows']
 
 if indices_seleccionados:
+    df_favs = df_f.iloc[indices_seleccionados].copy()
+    
     st.divider()
-    st.header("⭐ Mi Lista de Postulación (Favoritos)")
     
-    # Extraemos solo las filas elegidas
-    df_favoritos = df_f.iloc[indices_seleccionados]
+    # Intentar cruzar con coordenadas
+    if df_coords is not None:
+        # Unimos las plazas seleccionadas con sus coordenadas
+        df_mapa = pd.merge(df_favs, df_coords[['CÓDIGO RENIPRESS', 'lat', 'lon']], on='CÓDIGO RENIPRESS', how='left')
+        
+        # Eliminar las que no tienen coordenadas para no romper el mapa
+        df_mapa_clean = df_mapa.dropna(subset=['lat', 'lon'])
+        
+        if not df_mapa_clean.empty:
+            st.subheader("🗺️ Ubicación en el Mapa")
+            st.map(df_mapa_clean, size=20)
+        else:
+            st.warning("⚠️ Las plazas seleccionadas no tienen coordenadas registradas.")
+    else:
+        st.error("❌ Archivo 'coordenadas_renipress.csv' no encontrado en el servidor.")
+
+    # Lista de favoritos abajo del mapa
+    st.subheader("⭐ Mi Lista de Postulación")
+    st.dataframe(df_favs, use_container_width=True, hide_index=True)
     
-    st.dataframe(df_favoritos, use_container_width=True, hide_index=True)
-    
-    # Botón para descargar solo los elegidos
-    csv_favs = df_favoritos.to_csv(index=False).encode('utf-8-sig')
-    st.download_button("📥 Descargar mi lista de favoritos", csv_favs, "mis_favoritos_serums.csv", "text/csv")
+    # Botón de descarga
+    csv_favs = df_favs.to_csv(index=False).encode('utf-8-sig')
+    st.download_button("📥 Descargar mis favoritos", csv_favs, "mis_favoritos.csv", "text/csv")
 else:
-    st.caption("Usa la tabla de arriba para marcar las plazas que más te interesan.")
+    st.caption("Selecciona plazas en la tabla superior para ver el mapa interactivo.")
