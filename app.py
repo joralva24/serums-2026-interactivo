@@ -89,7 +89,7 @@ event = st.dataframe(
     use_container_width=True, 
     hide_index=True, 
     on_select="rerun", 
-    selection_mode="multi_row"  # <--- EL CAMBIO ESTÁ AQUÍ (era multi_rows)
+    selection_mode="multi-row" # <--- CAMBIO: Ahora con guion medio (-)
 )
 # --- 7. SECCIÓN DE FAVORITOS ---
 indices_seleccionados = event['selection']['rows']
