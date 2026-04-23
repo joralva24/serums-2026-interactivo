@@ -81,18 +81,16 @@ with c3:
     csv_todo = df_f.to_csv(index=False).encode('utf-8-sig')
     st.download_button("📥 Descargar búsqueda completa", csv_todo, "busqueda_serums.csv", "text/csv")
 
-# --- 6. TABLA INTERACTIVA (EL CAMBIO CLAVE) ---
+# --- 6. TABLA INTERACTIVA ---
 st.info("💡 Selecciona las filas en el cuadro de la izquierda para agregarlas a tu 'Lista de Postulación' abajo.")
 
-# Aquí creamos la tabla seleccionable
 event = st.dataframe(
     df_f, 
     use_container_width=True, 
     hide_index=True, 
-    on_select="rerun", # Esto hace que la app reaccione al clic
-    selection_mode="multi_rows"
+    on_select="rerun", 
+    selection_mode="multi_row"  # <--- EL CAMBIO ESTÁ AQUÍ (era multi_rows)
 )
-
 # --- 7. SECCIÓN DE FAVORITOS ---
 indices_seleccionados = event['selection']['rows']
 
