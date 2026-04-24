@@ -1,61 +1,47 @@
 import streamlit as st
 import pandas as pd
-from streamlit_sortables import sort_items
 
-# 1. CONFIGURACIÓN Y ESTILO PERSONALIZADO (CSS)
-st.set_page_config(page_title="SERUMS 2026 - Estrategia", layout="wide", page_icon="🏥")
+# 1. ESTILO PROFESIONAL (UI/UX)
+st.set_page_config(page_title="SERUMS 2026 | Estrategia", layout="wide", page_icon="🏥")
 
 st.markdown("""
     <style>
-    /* Fondo general */
-    .stApp {
-        background-color: #f8f9fa;
-    }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
     
-    /* Estilo de los títulos */
-    h1 {
-        color: #1e3a8a;
-        font-family: 'Helvetica Neue', sans-serif;
-        font-weight: 800;
-    }
+    html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
     
-    /* Tarjetas de Métricas */
-    [data-testid="stMetricValue"] {
-        color: #1e3a8a;
+    .main { background-color: #fcfcfd; }
+    
+    /* Métricas Minimalistas */
+    [data-testid="stMetric"] {
         background-color: #ffffff;
-        padding: 10px;
-        border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        border-left: 5px solid #3b82f6;
-    }
-
-    /* Estilo de la barra lateral */
-    section[data-testid="stSidebar"] {
-        background-color: #ffffff;
-        border-right: 1px solid #e5e7eb;
-    }
-
-    /* Estilo de las tarjetas de ranking (Sortables) */
-    .st-sortable-item {
-        background: #ffffff !important;
-        border-radius: 12px !important;
-        padding: 15px !important;
-        margin-bottom: 10px !important;
-        border: 1px solid #e5e7eb !important;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
-        color: #1f2937 !important;
-        font-weight: 500 !important;
-        cursor: grab !important;
+        border: 1px solid #edf2f7;
+        padding: 20px;
+        border-radius: 16px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
     }
     
-    /* Botones principales */
+    /* Tarjetas de Ranking */
+    .plaza-card {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 1rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .plaza-info { flex-grow: 1; }
+    .plaza-name { color: #1a202c; font-weight: 700; font-size: 1.1rem; }
+    .plaza-detail { color: #718096; font-size: 0.9rem; }
+    
+    /* Botones */
     .stButton>button {
-        border-radius: 20px;
-        font-weight: 600;
-        transition: all 0.3s;
-    }
-    .stButton>button:hover {
-        transform: scale(1.02);
+        border-radius: 8px;
+        transition: all 0.2s;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -70,101 +56,97 @@ def load_all_data():
         df_c = pd.read_csv('coordenadas_renipress.csv')
         df_c['CÓDIGO RENIPRESS'] = df_c['CÓDIGO RENIPRESS'].astype(str).str.zfill(8)
         df_c = df_c.drop_duplicates(subset=['CÓDIGO RENIPRESS'])
-    except:
-        df_c = None
+    except: df_c = None
     return df_p, df_c
 
 df_master, df_coords = load_all_data()
 
-# Inicializar sesión
-if 'carrito_plazas' not in st.session_state:
-    st.session_state.carrito_plazas = []
+# Sesión de favoritos
+if 'lista_ranking' not in st.session_state:
+    st.session_state.lista_ranking = []
 
 # --- 3. BARRA LATERAL ---
 with st.sidebar:
-    st.image("https://www.gob.pe/images/logos/logotipo-gob-pe.png", width=150) # Opcional: Logo institucional
-    st.header("🔍 Panel de Control")
-    prof_sel = st.multiselect("Profesión:", sorted(df_master['PROFESIÓN'].unique().tolist()))
-    dept_sel = st.multiselect("Departamento:", sorted(df_master['DEPARTAMENTO'].unique().tolist()))
-    inst_sel = st.multiselect("Institución:", sorted(df_master['INSTITUCIÓN'].unique().tolist()))
-    gd_sel = st.multiselect("Grado de Dificultad:", sorted(df_master['GRADO DE DIFICULTAD'].unique().tolist()))
-    st.markdown("---")
-    st.caption("v2.0 - Desarrollado para Serumistas 2026")
+    st.title("🏥 SERUMS 2026")
+    prof_sel = st.multiselect("Profesión", sorted(df_master['PROFESIÓN'].unique()))
+    dept_sel = st.multiselect("Departamento", sorted(df_master['DEPARTAMENTO'].unique()))
+    inst_sel = st.multiselect("Institución", sorted(df_master['INSTITUCIÓN'].unique()))
+    gd_sel = st.multiselect("Dificultad (GD)", sorted(df_master['GRADO DE DIFICULTAD'].unique()))
 
-# --- 4. LÓGICA DE FILTRADO ---
+# --- 4. FILTRADO ---
 df_f = df_master.copy()
 if prof_sel: df_f = df_f[df_f['PROFESIÓN'].isin(prof_sel)]
 if dept_sel: df_f = df_f[df_f['DEPARTAMENTO'].isin(dept_sel)]
 if inst_sel: df_f = df_f[df_f['INSTITUCIÓN'].isin(inst_sel)]
 if gd_sel: df_f = df_f[df_f['GRADO DE DIFICULTAD'].isin(gd_sel)]
 
-# --- 5. INTERFAZ PRINCIPAL ---
-st.title("🏥 Planificador Estratégico SERUMS")
-st.write("Gestiona tus plazas y construye tu ranking oficial de forma visual.")
+# --- 5. CUERPO PRINCIPAL ---
+st.title("Estrategia de Adjudicación")
 
-# Métricas Estilizadas
-m1, m2, m3 = st.columns(3)
-m1.metric("Establecimientos", len(df_f))
-m2.metric("Vacantes Totales", int(df_f['N° PLAZAS'].sum()))
-m3.metric("Guardados", len(st.session_state.carrito_plazas))
+col1, col2, col3 = st.columns(3)
+col1.metric("Establecimientos", len(df_f))
+col2.metric("Vacantes", int(df_f['N° PLAZAS'].sum()))
+col3.metric("En tu Ranking", len(st.session_state.lista_ranking))
 
-# Buscador y Tabla
-with st.container():
-    search = st.text_input("🔍 Buscar por nombre específico:", placeholder="Ej: Puesto de Salud...")
-    if search:
-        df_f = df_f[df_f['NOMBRE DE ESTABLECIMIENTO'].str.contains(search, case=False, na=False)]
-    
-    st.markdown("### 📋 Resultados de Búsqueda")
-    event = st.dataframe(df_f, use_container_width=True, hide_index=True, on_select="rerun", selection_mode="multi-row")
+# Tabla de búsqueda
+search = st.text_input("🔍 Buscar establecimiento...", placeholder="Nombre del puesto o centro de salud")
+if search:
+    df_f = df_f[df_f['NOMBRE DE ESTABLECIMIENTO'].str.contains(search, case=False, na=False)]
 
-# Botón de añadir con estilo
-if st.button("✨ Añadir Seleccionados al Ranking", type="primary", use_container_width=True):
+event = st.dataframe(df_f, use_container_width=True, hide_index=True, on_select="rerun", selection_mode="multi-row")
+
+if st.button("✨ Guardar selección en mi ranking", type="primary"):
     indices = event['selection']['rows']
     if indices:
-        nuevas = df_f.iloc[indices].to_dict('records')
-        for n in nuevas:
-            if n not in st.session_state.carrito_plazas:
-                st.session_state.carrito_plazas.append(n)
+        seleccionados = df_f.iloc[indices].to_dict('records')
+        for s in seleccionados:
+            if s not in st.session_state.lista_ranking:
+                st.session_state.lista_ranking.append(s)
         st.rerun()
 
-# --- 6. SECCIÓN DE RANKING (TUNEADA) ---
-if st.session_state.carrito_plazas:
+# --- 6. RANKING PERSONALIZADO (EL "TUNEO") ---
+if st.session_state.lista_ranking:
     st.divider()
-    col_rank, col_map = st.columns([1, 1.2])
+    st.header("⭐ Mi Prioridad de Postulación")
+    
+    col_rank, col_mapa = st.columns([1, 1.2])
     
     with col_rank:
-        st.subheader("⭐ Mi Ranking de Prioridad")
-        st.markdown("_Arrastra las tarjetas para ordenar tus opciones finalistas_")
-        
-        # Etiquetas estilizadas para las tarjetas
-        opciones = [f"📍 {p['NOMBRE DE ESTABLECIMIENTO']} \n\n {p['DEPARTAMENTO']} | GD: {p['GRADO DE DIFICULTAD']}" 
-                    for p in st.session_state.carrito_plazas]
-
-        # Componente Draggable
-        orden_etiquetas = sort_items(opciones, direction="vertical", key="ranking_visual")
-
-        # Sincronizar orden
-        nueva_lista = []
-        for etiqueta in orden_etiquetas:
-            nombre = etiqueta.split("📍 ")[1].split(" \n\n")[0]
-            for p in st.session_state.carrito_plazas:
-                if p['NOMBRE DE ESTABLECIMIENTO'] == nombre:
-                    nueva_lista.append(p)
-                    break
-        st.session_state.carrito_plazas = nueva_lista
-
-        # Acciones de la lista
-        st.markdown("---")
-        c_desc, c_clear = st.columns(2)
-        df_final = pd.DataFrame(st.session_state.carrito_plazas)
-        csv = df_final.to_csv(index=False).encode('utf-8-sig')
-        c_desc.download_button("📥 Descargar Ranking", csv, "mi_ranking.csv", "text/csv")
-        if c_clear.button("🗑️ Vaciar Todo"):
-            st.session_state.carrito_plazas = []
-            st.rerun()
-
-    with col_map:
-        st.subheader("🗺️ Vista Geográfica")
+        # Dibujamos las tarjetas de ranking
+        for i, plaza in enumerate(st.session_state.lista_ranking):
+            with st.container():
+                # HTML para la tarjeta visual
+                st.markdown(f"""
+                    <div class="plaza-card">
+                        <div class="plaza-info">
+                            <div class="plaza-detail">OPCIÓN {i+1}</div>
+                            <div class="plaza-name">{plaza['NOMBRE DE ESTABLECIMIENTO']}</div>
+                            <div class="plaza-detail">{plaza['DEPARTAMENTO']} • {plaza['PROVINCIA']} • {plaza['GRADO DE DIFICULTAD']}</div>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                # Botones de control bajo la tarjeta
+                b1, b2, b3 = st.columns([1,1,2])
+                if b1.button("🔼", key=f"up_{i}") and i > 0:
+                    st.session_state.lista_ranking[i], st.session_state.lista_ranking[i-1] = st.session_state.lista_ranking[i-1], st.session_state.lista_ranking[i]
+                    st.rerun()
+                if b2.button("🔽", key=f"down_{i}") and i < len(st.session_state.lista_ranking)-1:
+                    st.session_state.lista_ranking[i], st.session_state.lista_ranking[i+1] = st.session_state.lista_ranking[i+1], st.session_state.lista_ranking[i]
+                    st.rerun()
+                if b3.button("❌ Quitar", key=f"del_{i}"):
+                    st.session_state.lista_ranking.pop(i)
+                    st.rerun()
+    
+    with col_mapa:
+        df_rank = pd.DataFrame(st.session_state.lista_ranking)
         if df_coords is not None:
-            df_mapa = pd.merge(df_final, df_coords[['CÓDIGO RENIPRESS', 'lat', 'lon']], on='CÓDIGO RENIPRESS', how='left')
-            st.map(df_mapa.dropna(subset=['lat', 'lon']), color="#1e3a8a", size=30)
+            df_mapa = pd.merge(df_rank, df_coords[['CÓDIGO RENIPRESS', 'lat', 'lon']], on='CÓDIGO RENIPRESS', how='left')
+            st.map(df_mapa.dropna(subset=['lat', 'lon']), color="#3b82f6")
+        
+        st.markdown("### Acciones finales")
+        csv = df_rank.to_csv(index=False).encode('utf-8-sig')
+        st.download_button("📥 Descargar Ranking Oficial", csv, "mi_serums_2026.csv", "text/csv")
+        if st.button("🗑️ Vaciar lista"):
+            st.session_state.lista_ranking = []
+            st.rerun()
