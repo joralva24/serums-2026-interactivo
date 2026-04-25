@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-# 1. CONFIGURACIÓN Y DISEÑO (CSS MÁS OSCURO)
+# 1. CONFIGURACIÓN Y FIX PARA DARK MODE (FORZAR CONTRASTE)
 st.set_page_config(page_title="SERUMS 2026 | Estrategia", layout="wide", page_icon="🏥")
 
 st.markdown("""
@@ -10,35 +10,32 @@ st.markdown("""
     
     html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
     
-    /* Fondo más grisáceo para contraste */
-    .stApp { background-color: #f1f5f9; }
+    /* FIX DARK MODE: Forzamos colores para que no se rompa la visibilidad */
+    .stApp { background-color: #f1f5f9 !important; }
     
-    /* Tarjetas de Métricas con bordes más fuertes */
+    /* Forzamos que los textos de las métricas y tarjetas sean siempre oscuros */
+    [data-testid="stMetricValue"], [data-testid="stMetricLabel"], .plaza-name, .plaza-detail {
+        color: #0f172a !important; 
+    }
+
     [data-testid="stMetric"] {
-        background-color: #ffffff;
-        border: 2px solid #cbd5e0; /* Gris más oscuro */
+        background-color: #ffffff !important;
+        border: 2px solid #cbd5e0 !important;
         padding: 20px;
         border-radius: 12px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
     }
     
-    /* Tarjetas de Ranking más contrastadas */
     .plaza-card {
-        background-color: #ffffff;
-        border: 2px solid #94a3b8; /* Gris azulado oscuro */
+        background-color: #ffffff !important;
+        border: 2px solid #94a3b8 !important;
         padding: 1.2rem;
         border-radius: 10px;
         margin-bottom: 0.5rem;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    
-    .plaza-name { color: #0f172a; font-weight: 800; font-size: 1.1rem; }
-    .plaza-detail { color: #475569; font-size: 0.95rem; font-weight: 500; }
-    
-    /* Barra lateral */
+
+    /* Ajuste de la barra lateral para que no se vea 'sucia' en dark mode */
     section[data-testid="stSidebar"] {
-        background-color: #e2e8f0;
-        border-right: 2px solid #cbd5e0;
+        background-color: #e2e8f0 !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -61,17 +58,14 @@ df_master, df_coords = load_all_data()
 if 'lista_ranking' not in st.session_state:
     st.session_state.lista_ranking = []
 
-# --- 3. BARRA LATERAL (TODOS LOS FILTROS RECUPERADOS) ---
+# --- 3. BARRA LATERAL (FILTROS COMPLETOS) ---
 with st.sidebar:
     st.title("🏥 SERUMS 2026")
     st.subheader("Filtros Maestros")
     
     prof_sel = st.multiselect("1. Profesión", sorted(df_master['PROFESIÓN'].unique()))
     
-    # Ubicación Dinámica
-    depts = sorted(df_master['DEPARTAMENTO'].unique())
-    dept_sel = st.multiselect("2. Departamento", depts)
-    
+    dept_sel = st.multiselect("2. Departamento", sorted(df_master['DEPARTAMENTO'].unique()))
     if dept_sel:
         provs = sorted(df_master[df_master['DEPARTAMENTO'].isin(dept_sel)]['PROVINCIA'].unique())
     else:
@@ -86,6 +80,13 @@ with st.sidebar:
     st.subheader("Bonificaciones")
     zaf_filtro = st.checkbox("Bono ZAF (Zona Alejada)")
     ze_filtro = st.checkbox("Bono ZE (VRAEM)")
+
+    # --- SECCIÓN DE DONACIONES (SUTIL) ---
+    st.markdown("---")
+    st.markdown("### ❤️ Apoya el proyecto")
+    st.markdown("Si esta herramienta te sirvió, puedes invitarme un café vía **Yape**.")
+    st.code("941760539", language=None) # AQUÍ PON TU NÚMERO REAL
+    st.caption("¡Éxitos en tu adjudicación!")
 
 # --- 4. LÓGICA DE FILTRADO ---
 df_f = df_master.copy()
@@ -106,16 +107,13 @@ c1.metric("Establecimientos", len(df_f))
 c2.metric("Vacantes Totales", int(df_f['N° PLAZAS'].sum()))
 c3.metric("Mi Ranking", len(st.session_state.lista_ranking))
 
-search = st.text_input("🔍 Buscar por establecimiento o distrito:", placeholder="Ej: Centro de Salud...")
+search = st.text_input("🔍 Buscar por establecimiento:", placeholder="Ej: Puesto de Salud...")
 if search:
-    df_f = df_f[df_f['NOMBRE DE ESTABLECIMIENTO'].str.contains(search, case=False, na=False) | 
-                df_f['DISTRITO'].str.contains(search, case=False, na=False)]
+    df_f = df_f[df_f['NOMBRE DE ESTABLECIMIENTO'].str.contains(search, case=False, na=False)]
 
-# Tabla Principal
-st.info("💡 Selecciona las plazas en el cuadro de la izquierda y presiona el botón para guardarlas.")
 event = st.dataframe(df_f, use_container_width=True, hide_index=True, on_select="rerun", selection_mode="multi-row")
 
-if st.button("✨ Agregar a mi Lista", type="primary", use_container_width=True):
+if st.button("✨ Guardar selección en mi ranking", type="primary", use_container_width=True):
     indices = event['selection']['rows']
     if indices:
         seleccionados = df_f.iloc[indices].to_dict('records')
@@ -137,18 +135,19 @@ if st.session_state.lista_ranking:
                 st.markdown(f"""
                     <div class="plaza-card">
                         <div class="plaza-name">#{i+1} - {plaza['NOMBRE DE ESTABLECIMIENTO']}</div>
-                        <div class="plaza-detail">{plaza['DEPARTAMENTO']} | {plaza['PROVINCIA']} | {plaza['INSTITUCIÓN']}</div>
-                        <div class="plaza-detail">Dificultad: {plaza['GRADO DE DIFICULTAD']} | Presupuesto: {plaza['PRESUPUESTO']}</div>
+                        <div class="plaza-detail">{plaza['DEPARTAMENTO']} | {plaza['PROVINCIA']} | GD: {plaza['GRADO DE DIFICULTAD']}</div>
                     </div>
                 """, unsafe_allow_html=True)
                 
                 b1, b2, b3 = st.columns([1, 1, 2])
-                if b1.button("+", key=f"up_{i}") and i > 0:
-                    st.session_state.lista_ranking[i], st.session_state.lista_ranking[i-1] = st.session_state.lista_ranking[i-1], st.session_state.lista_ranking[i]
-                    st.rerun()
-                if b2.button("-", key=f"down_{i}") and i < len(st.session_state.lista_ranking)-1:
-                    st.session_state.lista_ranking[i], st.session_state.lista_ranking[i+1] = st.session_state.lista_ranking[i+1], st.session_state.lista_ranking[i]
-                    st.rerun()
+                if b1.button("🔼", key=f"up_{i}"):
+                    if i > 0:
+                        st.session_state.lista_ranking[i], st.session_state.lista_ranking[i-1] = st.session_state.lista_ranking[i-1], st.session_state.lista_ranking[i]
+                        st.rerun()
+                if b2.button("🔽", key=f"down_{i}"):
+                    if i < len(st.session_state.lista_ranking)-1:
+                        st.session_state.lista_ranking[i], st.session_state.lista_ranking[i+1] = st.session_state.lista_ranking[i+1], st.session_state.lista_ranking[i]
+                        st.rerun()
                 if b3.button("🗑️ Quitar", key=f"del_{i}"):
                     st.session_state.lista_ranking.pop(i)
                     st.rerun()
@@ -157,11 +156,8 @@ if st.session_state.lista_ranking:
         df_rank = pd.DataFrame(st.session_state.lista_ranking)
         if df_coords is not None:
             df_mapa = pd.merge(df_rank, df_coords[['CÓDIGO RENIPRESS', 'lat', 'lon']], on='CÓDIGO RENIPRESS', how='left')
-            st.map(df_mapa.dropna(subset=['lat', 'lon']), color="#1e40af") # Azul más oscuro para los puntos
+            st.map(df_mapa.dropna(subset=['lat', 'lon']), color="#1e40af")
         
-        st.markdown("### Acciones del Ranking")
+        st.markdown("### Acciones")
         csv = df_rank.to_csv(index=False).encode('utf-8-sig')
-        st.download_button("📥 Descargar Ranking Ordenado", csv, "mi_ranking_serums.csv", "text/csv", use_container_width=True)
-        if st.button("❌ Vaciar Ranking", use_container_width=True):
-            st.session_state.lista_ranking = []
-            st.rerun()
+        st.download_button("📥 Descargar mi Ranking", csv, "mi_ranking_serums.csv", "text/csv", use_container_width=True)
